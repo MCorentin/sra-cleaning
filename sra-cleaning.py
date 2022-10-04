@@ -18,19 +18,20 @@ VERSION = "0.1.0"
 
 # Help and usage:
 def print_version():
-    """Print the version.
-    """
+    """Print the version"""
     global VERSION
     print("sra-cleaning v" + VERSION)
 
 def usage():
-    """Print the usage.
-    """
+    """Print the usage"""
     print("\npython sra-cleaning.py -a [assembly.fasta] -g [annotation.gff] -c [Contamination.txt] -o [output_folder]")
     print("\nInput:")
     print("     -a/--assembly           The assembly to clean in fasta format.")
     print("     -g/--gff                Optional: a GFF file containing annotation for the assembly.")
     print("     -c/--contamination      The Contamination.txt file given by the SRA.")
+    print("\nParameters:")
+    print("     -m/--mask               To mask the sequences instead of trimming them.\n"+ 
+          "                             (the 'exclude' sequences will still be removed).")
     print("\nOutput:")
     print("     -o/--output             The path to the output folder, './sra-cleaning/' by default")
     print("\nOther:")
@@ -44,10 +45,11 @@ def get_arguments():
     annotation_gff = None
     contamination_file = "Contamination.txt"
     output_folder = "./sra-cleaning/"
+    use_mask = False
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "a:g:c:o:hv", ["assembly=", "gff=", "contamination=", 
-                                                                "output=", "help", "version"])
+        opts, args = getopt.getopt(sys.argv[1:], "a:g:c:o:mhv", ["assembly=", "gff=", "contamination=", 
+                                                                "output=", "mask", "help", "version"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -62,6 +64,8 @@ def get_arguments():
             contamination_file = str(a)
         elif o in ("-o", "--output"):
             output_folder = str(a)
+        elif o in ("-m", "--mask"):
+            use_mask = True
         elif o in ("-h", "--help"):
             usage()
             sys.exit(1)
@@ -71,7 +75,7 @@ def get_arguments():
         else:
             assert False, "Unhandled option !"
 
-    return assembly_fasta, annotation_gff, contamination_file, output_folder
+    return assembly_fasta, annotation_gff, contamination_file, output_folder, use_mask
 
 
 def check_arguments(assembly_fasta, annotation_gff, contamination_file, output_folder):
@@ -160,10 +164,10 @@ def parse_contamination(contamination_file):
                 stop = line.split("\t")[2].split("..")[1]
                 to_trim.update( {id : [start,stop]} )
 
-        return to_exclude, to_trim
+    return to_exclude, to_trim
 
 
-def clean_assembly(assembly_fasta, to_exclude, to_trim):
+def clean_assembly(assembly_fasta, to_exclude, to_trim, use_mask):
     """This script will call exclude_sequences() and trim_sequences()"""
     # First, records contains the assembly:
     assembly_records = list(SeqIO.parse(assembly_fasta, 'fasta'))
@@ -172,7 +176,7 @@ def clean_assembly(assembly_fasta, to_exclude, to_trim):
         assembly_records = exclude_sequences(assembly_records, to_exclude)
     # If we have to mask/trim sequences, they will be trimmed from 'records' by trim_sequences()
     if(len(to_trim) > 0):
-        assembly_records = trim_sequences(assembly_records, to_trim)
+        assembly_records = trim_sequences(assembly_records, to_trim, use_mask)
     # We return the "cleaned" records
     return assembly_records
 
@@ -194,7 +198,7 @@ def exclude_sequences(records, to_exclude):
     return after_exclude_records
 
 
-def trim_sequences(records, to_trim):
+def trim_sequences(records, to_trim, use_mask):
     """This function takes a list of SeqRecords and a dictionary of sequences to 
     trim (with seqID as key and a list of [start, stop] as values.
     The function will mask or trim the sequences from the dict in the FASTA file."""
@@ -202,10 +206,14 @@ def trim_sequences(records, to_trim):
 
     for record in records:
         if(record.id in to_trim.keys()):
-            # +1 because python is 0-based, but [] is exclusive, so no '+1' to stop
+            # -1 because python is 0-based, but [] is exclusive, so no need to stop-1
             start = int(to_trim.get(record.id)[0]) - 1
             stop = int(to_trim.get(record.id)[1])
-            trimmed_records.append(SeqRecord(record.seq[:start] + record.seq[stop:], id = record.id, description = '', name = ''))
+            if(use_mask):
+                mask_len = stop - start
+                trimmed_records.append(SeqRecord(record.seq[:start] + str("N" * mask_len) + record.seq[stop:], id = record.id, description = '', name = ''))   
+            else:
+                trimmed_records.append(SeqRecord(record.seq[:start] + record.seq[stop:], id = record.id, description = '', name = ''))
         else:
             trimmed_records.append(SeqRecord(record.seq, id = record.id, description = '', name = ''))
 
@@ -213,19 +221,25 @@ def trim_sequences(records, to_trim):
     len_trimmed = sum([len(record.seq) for record in trimmed_records])
     len_cont_file = sum([(int(to_trim.get(key)[1]) - int(to_trim.get(key)[0]) + 1) for key in to_trim.keys()])
 
-    print("\nBefore Trimming: ", str(len_input), " bases.")
-    print("After Trimming: ", str(len_trimmed), " bases")
-    print("The script trimmed " + str(len_input - len_trimmed) + " bases")
-
-    if((len_input - len_trimmed) != len_cont_file):
-        print("Warning! We were supposed to remove " + str(len_cont_file) + " bases "+
-        "but " + str(len_input - len_trimmed) + " bases were removed !")
+    if(use_mask):
+        print("The script masked " + str(mask_len) + " bases")
+    else:
+        print("\nBefore Trimming: ", str(len_input), " bases.")
+        print("After Trimming: ", str(len_trimmed), " bases")
+        print("The script trimmed " + str(len_input - len_trimmed) + " bases")
+        if((len_input - len_trimmed) != len_cont_file):
+            print("Warning! We were supposed to remove " + str(len_cont_file) + " bases "+
+            "but " + str(len_input - len_trimmed) + " bases were removed !")
     
     return trimmed_records
 
+#def clean_gff(annotation_gff, to_exclude, to_trim):
+#    """Take an annotation file in GFF format and removes the annotation overlapping
+#    with the removed / trimmed / masked sequences in the assembly."""
+
 
 def main():
-    assembly_fasta, annotation_gff, contamination_file, output_folder = get_arguments()
+    assembly_fasta, annotation_gff, contamination_file, output_folder, use_mask = get_arguments()
     check_arguments(assembly_fasta, annotation_gff, contamination_file, output_folder)
 
     os.makedirs(output_folder)
@@ -234,7 +248,7 @@ def main():
     to_exclude, to_trim = parse_contamination(contamination_file)
     print(to_exclude, to_trim)
     
-    cleaned_records = clean_assembly(assembly_fasta, to_exclude, to_trim)
+    cleaned_records = clean_assembly(assembly_fasta, to_exclude, to_trim, use_mask)
     print("\nWriting cleaned fasta file to:", output_fasta)
     SeqIO.write(cleaned_records, output_fasta, "fasta")
 
