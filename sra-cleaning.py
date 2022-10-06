@@ -13,7 +13,7 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
 global VERSION
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 # Help and usage:
 def print_version():
