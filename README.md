@@ -8,6 +8,8 @@ When an assembly is submitted to the SRA, some checks are performed, including a
 
 **The script is performing some sanity checks to assess if the proper changes were made to the assembly, but it is highly recommended to manually check the output files!**
 
+**note: sra-cleaning.py does not yet support multiple spans per sequence for the trimming step.**
+
 Note: I could not find a "standard" format for the Contamination.txt files. The script will parse the file to find the sequences below the "Exclude:" and "Trim:" lines. If your Contamination.txt file is different, feel free to contact me or create an issue on GitHub to improve the parsing within this script.
 
 ## Dependencies
