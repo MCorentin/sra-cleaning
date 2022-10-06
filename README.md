@@ -4,7 +4,7 @@ Python script to automatically parse a "Contamination.txt" file from the Sequenc
 
 ## Motivation
 
-When an assembly is submitted to the SRA, some checks are performed, including a Contamination check. The SRA then sends a "Contamination.txt" file containing a list of sequences to remove / trim. This script will parse the "Contamination.txt" file and output ready-to-submit assembly (FASTA) and annotation (GFF) files to submit to SRA after the contamination cleaning.
+When an assembly is submitted to the SRA, some checks are performed, including a Contamination check. The SRA then sends a "Contamination.txt" file containing a list of sequences to remove / trim. This script will parse the "Contamination.txt" file and output ready-to-submit assembly (FASTA) and annotation (GFF) files to submit to SRA.
 
 **The script is performing some sanity checks to assess if the proper changes were made to the assembly, but it is highly recommended to manually check the output files!**
 
@@ -61,15 +61,16 @@ For the annotation GFF:
 
 1. Remove the features with _seqname_ listed in the "Exclude:" sequences
 2. Remove the features which overlap with the "Trim:" regions
-     * If the region falls in the middle of a sequence, rename _seqname_ with "_1" and "_2" as mentioned above.
+     * If the region falls in the middle of a sequence, add "_1" and "_2" to the _seqname_ of features situated before and after the region respectively.
 3. Remove the features with _seqname_ that were removed in the polishing step (sequence length < 200 nt)
 
 ## Output files:
 
-_cleaned.fasta_: contains the filtered FASTA file.
-_cleaned.gff_: contains the filtered GFF annotations.
-_removed\_features.gff_: contains the removed features.
+- _cleaned.fasta_: contains the filtered FASTA file.
+- _cleaned.gff_: contains the filtered GFF annotations.
+- _removed\_features.gff_: contains the removed features.
 
 ## ToDo list:
 
 - Implement parsing for multiple spans on the same sequence in the "Contamination.txt" file.
+- Add more checks (check if GFF features have >= 9 columns and if the GFF and FASTA have corresponding sequence IDs)
