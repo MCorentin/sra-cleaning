@@ -336,18 +336,28 @@ def trim_gff(gff_contents, assembly_records, to_trim, split):
             # GFF is 1-based os no need for the -1 here.
             trim_start = int(to_trim.get(gff_line_split[0])[0])
             trim_stop = int(to_trim.get(gff_line_split[0])[1])
-            seq_len = len(assembly_dict[gff_line_split[0]])
+            seq_len = len(assembly_dict[gff_line_split[0]].seq)
             # We only keep the feature if it is outside the trimmed region:
             if(int(gff_line_split[3]) < trim_start and int(gff_line_split[4]) < trim_start):
                 # If the trimmed region was internal, we rename the ID accordingly:
                 if(trim_start != 1 and trim_stop != seq_len and split):
-                    gff_line_split[0] = gff_line_split[0] = "_1"
+                    gff_line_split[0] = gff_line_split[0] + "_1"
                 trimmed_gff.append("\t".join(gff_line_split))
             # We only keep the feature if it is outside the trimmed region:
+            # /!\ if the sequence is after the trimming we need to update the coordinates accrodingly
             elif(int(gff_line_split[3]) > trim_stop and int(gff_line_split[4]) > trim_stop):
                 # If the trimmed region was internal, we rename the ID accordingly:
                 if(trim_start != 1 and trim_stop != seq_len and split):
-                    gff_line_split[0] = gff_line_split[0] = "_2"
+                    gff_line_split[0] = gff_line_split[0] + "_2"
+                    # We update the feature's start and stop, we shift by stop position,
+                    # as the new 1st position of splitted contig_2 starts at "trim_stop"
+                    gff_line_split[3] = str(int(gff_line_split[3]) - trim_stop)
+                    gff_line_split[4] = str(int(gff_line_split[4]) - trim_stop)
+                else:
+                    # We update the feature's start and stop position, we shift by trimmed region's length:
+                    gff_line_split[3] = str(int(gff_line_split[3]) - (trim_stop - trim_start + 1))
+                    gff_line_split[4] = str(int(gff_line_split[4]) - (trim_stop - trim_start + 1))
+
                 trimmed_gff.append("\t".join(gff_line_split))
             else:
                 features_trimmed.append(gff_line)
