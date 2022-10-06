@@ -6,16 +6,16 @@ Python script to automatically parse a "Contamination.txt" file from the Sequenc
 
 When an assembly is submitted to the SRA, some checks are performed, including a Contamination check. The SRA then sends a "Contamination.txt" file containing a list of sequences to remove / trim. This script will parse the "Contamination.txt" file and output ready-to-submit assembly (FASTA) and annotation (GFF) files to submit to SRA after the contamination cleaning.
 
-**The script is performing some checks to assess if the correct length was trimmed from the assembly, but it is highly recommended to manually check if the proper changes were made in the output files!**
+**The script is performing some sanity checks to assess if the proper changes were made to the assembly, but it is highly recommended to manually check the output files!**
 
-Note: I could not find a "standard" format for the Contamination.txt files. The script will parse the file to find the sequences below the "Exclude:" and "Trim:" lines. If your Contamination.txt file is different, feel free to contact me or create and issue on GitHub to improve the parsing within this script.
+Note: I could not find a "standard" format for the Contamination.txt files. The script will parse the file to find the sequences below the "Exclude:" and "Trim:" lines. If your Contamination.txt file is different, feel free to contact me or create an issue on GitHub to improve the parsing within this script.
 
 ## Dependencies
 
-sra-cleaning was developed and tested on Linux (Ubuntu 16.04.7 LTS) but it is pure python so I expect it should work on other OS as well.
+sra-cleaning was developed and tested on Linux (Ubuntu 16.04.7 LTS) using Python 3.7.4.
 
 You will need to have the following dependencies:
-- **Python v3 or higher (tested with Python 3.7.4)**
+- **Python v3 or higher**
 - **The following python packages:** [biopython](https://biopython.org/ "biopython Homepage"), getopt, sys, os.
 
 Note: the following packages should be installed by default:
@@ -29,27 +29,47 @@ os
 
 ````
 python sra-cleaning.py -a [assembly.fasta] -g [annotation.gff] -c [Contamination.txt] -o [output_folder]
-````
 
-````
 Input:
-     -a/--assembly          The assembly to clean in fasta format.
+     -a/--assembly           The assembly to clean in fasta format.
      -g/--gff                Optional: a GFF file containing annotation for the assembly.
      -c/--contamination      The Contamination.txt file given by the SRA.
-
 Output:
      -o/--output             The path to the output folder, './sra-cleaning/' by default
+
 Parameters:
-    -m/--mask                If this option is selected, the script will mask the sequences instead of trimming them (the 'exclude' sequences will still be removed).
-   
+     -n/--nosplit            If the contamination is found in the middle of a sequence, do not split the sequence.
+                             (By default, the sequence is split in two and '_1' and '_2' are added to the IDs).
 Other:
      -h/--help               Print the usage and help and exit.
      -v/--version            Print the version and exit.
 ````
 
-Note: the -g/--gff option is not supported yet.
+## Workflow:
 
-## TO DO
+For the assembly FASTA:
 
- - Add the support for gff files.
- - Add the option to mask (with Ns) instead of trimming.
+1. Remove the sequences listed in the "Exclude:" list.
+2. Trim the regions from the "Trim:" list.
+     * By default, if the region to trim falls in the middle of a sequence (ie: the start is not 1 or the end does not correspond to the sequence's length) the sequence will be split in two and the resulting sequences will have "_1" and "_2" added to the end of their IDs. Use "--nosplit" if you want to avoid this.
+     * If the region to trim is at the start or end of the sequence it will just be trimmed from the sequence.
+3. Polish the assembly as requested by the "Contamination.txt" file:
+     * Removing trailing Ns.
+     * Removing sequences < 200 nt.
+
+For the annotation GFF:
+
+1. Remove the features with _seqname_ listed in the "Exclude:" sequences
+2. Remove the features which overlap with the "Trim:" regions
+     * If the region falls in the middle of a sequence, rename _seqname_ with "_1" and "_2" as mentioned above.
+3. Remove the features with _seqname_ that were removed in the polishing step (sequence length < 200 nt)
+
+## Output files:
+
+_cleaned.fasta_: contains the filtered FASTA file.
+_cleaned.gff_: contains the filtered GFF annotations.
+_removed\_features.gff_: contains the removed features.
+
+## ToDo list:
+
+- Implement parsing for multiple spans on the same sequence in the "Contamination.txt" file.
