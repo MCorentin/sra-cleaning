@@ -1,6 +1,6 @@
 # sra-cleaning
 
-Python script to automatically parse a "Contamination.txt" file from the Sequence Read Archive (SRA) and correct the assembly FASTA  and annotation GFF files.
+Python script to automatically parse a "Contamination.txt" file from the Sequence Read Archive (SRA) and correct the assembly FASTA and annotation GFF files.
 
 ## Motivation
 
@@ -54,7 +54,7 @@ For the assembly FASTA:
 1. Remove the sequences listed in the "Exclude:" list.
 2. Trim the regions from the "Trim:" list.
      * By default, if the region to trim falls in the middle of a sequence (ie: the start is not 1 or the end does not correspond to the sequence's length) the sequence will be split in two and the resulting sequences will have "_1" and "_2" added to the end of their IDs. Use "--nosplit" if you want to avoid this.
-     * If the region to trim is at the start or end of the sequence it will just be trimmed from the sequence.
+     * If the region to trim is at the start or end of the sequence, it will just be trimmed from the sequence.
 3. Polish the assembly as requested by the "Contamination.txt" file:
      * Removing trailing Ns.
      * Removing sequences < 200 nt.
@@ -63,8 +63,9 @@ For the annotation GFF:
 
 1. Remove the features with _seqname_ listed in the "Exclude:" sequences
 2. Remove the features which overlap with the "Trim:" regions
-     * If the region falls in the middle of a sequence, add "_1" and "_2" to the _seqname_ of features situated before and after the region respectively.
-3. Remove the features with _seqname_ that were removed in the polishing step (sequence length < 200 nt)
+     * If the region falls in the middle of a sequence, add "_1" and "_2" to the *seqname* of features situated before and after the region respectively (unless --nosplit was used).
+     * If a feature falls after a trimmed region, update the coordinates (if "--nosplit" is used, substract by the length of the trimmed region, else substract by the 'end' coordinate of the trimmed region (since "sequence_2" start again from 1)).
+3. Remove the features with _seqname_ that were removed in the polishing step (sequence length < 200 nt).
 
 ## Output files:
 
